@@ -1,0 +1,33 @@
+name: macOS Probe
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  probe:
+    name: 探测 macOS runner
+    runs-on: macos-14
+    steps:
+      - name: 系统与工具链
+        run: |
+          set -e
+          echo "--- uname ---"; uname -a
+          echo "--- sw_vers ---"; sw_vers
+          echo "--- xcodebuild ---"; xcodebuild -version
+          echo "--- iPhoneOS SDK ---"; xcrun --sdk iphoneos --show-sdk-path
+          echo "--- 工具 ---"
+          for t in swiftc sips codesign zip; do command -v $t && $t --version 2>/dev/null | head -1 || echo "MISS $t"; done
+      - name: SwiftUI 交叉编译冒烟
+        run: |
+          set -e
+          cat > /tmp/probe.swift <<'SWIFT'
+          import SwiftUI
+          struct ProbeView: View {
+              var body: some View { Text("probe") }
+          }
+          SWIFT
+          xcrun -sdk iphoneos swiftc -target arm64-apple-ios15.0 \
+            -parse-as-library -c /tmp/probe.swift -o /tmp/probe.o
+          ls -lh /tmp/probe.o
+          echo "SWIFT_IOS_COMPILE_OK"
